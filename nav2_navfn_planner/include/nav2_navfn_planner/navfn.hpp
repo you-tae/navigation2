@@ -217,7 +217,12 @@ public:
    * @brief  Updates the cell at index n using the A* heuristic
    * @param n The index to update
    */
+
+  bool IsLeftCorner(int n);
+  bool IsRightCorner(int n);
+
   void updateCellAstar(int n);
+  int cycle;
 
   /**
    * @brief  Set up navigation potential arrays for new propagation

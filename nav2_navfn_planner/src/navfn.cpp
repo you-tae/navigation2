@@ -42,6 +42,7 @@
 //
 
 #include "nav2_navfn_planner/navfn.hpp"
+//#include "nav2_navfn_planner/navfn_planner.hpp"
 
 #include <algorithm>
 #include "rclcpp/rclcpp.hpp"
@@ -312,7 +313,7 @@ NavFn::calcNavFnAstar()
   setupNavFn(true);
 
   // calculate the nav fn and path
-  return propNavFnAstar(std::max(nx * ny / 20, nx + ny));
+  return propNavFnAstar(std::max(nx * ny / 20, nx + ny) + 100);    // +100 for more cycles
 }
 
 //
@@ -489,13 +490,223 @@ NavFn::updateCell(int n)
 // Quadratic approximation to the interpolated value
 // No checking of bounds here, this function should be fast
 //
+bool NavFn::IsLeftCorner(int n)
+{
+  float u, l, r;
+  bool cornerflag;
+  l = costarr[n - 1];
+  r = costarr[n + 1];
+  u = costarr[n - nx];
+  //d = costarr[n + nx];
+  if((l < COST_OBS && r >= COST_OBS && u >= COST_OBS))
+  {
+    cornerflag = true;  
+  }
+  else
+  {
+    cornerflag = false;
+  }
+  return cornerflag;
+}
+
+bool NavFn::IsRightCorner(int n)
+{
+  float u, l, r;
+  bool cornerflag;
+  l = costarr[n - 1];
+  r = costarr[n + 1];
+  u = costarr[n - nx];
+  //d = costarr[n + nx];
+  if((l >= COST_OBS && r < COST_OBS && u >= COST_OBS))
+  {
+    cornerflag = true;  
+  }
+  else
+  {
+    cornerflag = false;
+  }
+  return cornerflag;
+}
 
 #define INVSQRT2 0.707106781
+bool flag = true;
+//bool CornerFlag[8] = {};
+bool CornerFlag[12] = {};
 
 inline void
 NavFn::updateCellAstar(int n)
 {
   // get neighbors
+  float OffsetToMove = 20.0;        
+  float templ = potarr[n - 1];
+  float tempr = potarr[n + 1];
+  float tempu = potarr[n - nx];
+  float tempd = potarr[n + nx];         // To memorize past cell
+  //flag = true
+
+  if(flag)
+  {
+    // find lowest cost
+    float templl = costarr[n - 1];
+    float temprr = costarr[n + 1];
+    float tempuu = costarr[n - nx];
+    float tempdd = costarr[n + nx];
+    float temp1 = 0;
+    float temp2 = 0;
+    if(templl > temprr) temp1 = temprr; 
+    else if(templl < temprr) temp1 = templl;
+    if(tempuu > tempdd) temp2 = tempdd; 
+    else if(tempuu < tempdd) temp2 = tempuu;
+  
+    if((temp1 < temp2) && (temp1 == templl) && (tempuu < tempdd) && (tempdd < COST_OBS_ROS))                 //right --> up
+    {
+      CornerFlag[0] = true;
+      flag = false;
+    }
+    else if((temp1 < temp2) && (temp1 == templl) && (tempuu > tempdd) && (tempuu < COST_OBS_ROS))            //left --> up
+    {
+      CornerFlag[1] = true;
+      flag = false;
+    }
+    else if((temp1 < temp2) && (temp1 == temprr) && (tempuu < tempdd) && (tempdd < COST_OBS_ROS))            //right --> down 
+    {
+      CornerFlag[2] = true;
+      flag = false;
+    }
+    else if((temp1 < temp2) && (temp1 == temprr) && (tempuu > tempdd) && (tempuu < COST_OBS_ROS))            //left --> down
+    {
+      CornerFlag[3] = true;
+      flag = false;
+    }
+    else if((temp1 > temp2) && (temp2 == tempuu) && (templl < temprr) && (temprr < COST_OBS_ROS))            //down --> left 
+    {
+      CornerFlag[4] = true;
+      flag = false;
+    }
+    else if((temp1 > temp2) && (temp2 == tempuu) && (templl > temprr) && (templl < COST_OBS_ROS))            //up --> left
+    {
+      CornerFlag[5] = true;
+      flag = false;
+    }
+    else if((temp1 > temp2) && (temp2 == tempdd) && (templl < temprr) && (temprr < COST_OBS_ROS))           //down --> right
+    {
+      CornerFlag[6] = true;
+      flag = false;
+    }
+    else if((temp1 > temp2) && (temp2 == tempdd) && (templl > temprr) && (templl < COST_OBS_ROS))           //up --> right
+    {
+      CornerFlag[7] = true;
+      flag = false;
+    }  
+    else if(tempdd >= COST_OBS_ROS)       // check one more time
+    {
+      CornerFlag[8] = true;
+    }
+    else if(tempuu >= COST_OBS_ROS)
+    {
+      CornerFlag[9] = true;
+    }
+    else if(temprr >= COST_OBS_ROS)
+    {
+      CornerFlag[10] = true;
+    }
+    else if(templl >= COST_OBS_ROS)
+    {
+      CornerFlag[11] = true;
+    }
+  }
+  
+  if(CornerFlag[0])
+  {
+    potarr[n - 1] += OffsetToMove;
+    potarr[n + 1] -= OffsetToMove;
+    potarr[n - nx] += OffsetToMove;
+    potarr[n + nx] -= OffsetToMove;
+  }
+  else if(CornerFlag[1])
+  {
+    potarr[n - 1] += OffsetToMove;
+    potarr[n + 1] -= OffsetToMove;
+    potarr[n - nx] -= OffsetToMove;
+    potarr[n + nx] += OffsetToMove;
+  }
+  else if(CornerFlag[2])
+  {
+    potarr[n - 1] -= OffsetToMove;
+    potarr[n + 1] += OffsetToMove;
+    potarr[n - nx] += OffsetToMove;
+    potarr[n + nx] -= OffsetToMove;
+  }
+  else if(CornerFlag[3])
+  {
+    potarr[n - 1] -= OffsetToMove;
+    potarr[n + 1] += OffsetToMove;
+    potarr[n - nx] -= OffsetToMove;
+    potarr[n + nx] += OffsetToMove;
+  }
+  else if(CornerFlag[4])
+  {
+    potarr[n - 1] += OffsetToMove;
+    potarr[n + 1] -= OffsetToMove;
+    potarr[n - nx] += OffsetToMove;
+    potarr[n + nx] -= OffsetToMove;
+  }
+  else if(CornerFlag[5])
+  {
+    potarr[n - 1] -= OffsetToMove;
+    potarr[n + 1] += OffsetToMove;
+    potarr[n - nx] += OffsetToMove;
+    potarr[n + nx] -= OffsetToMove;
+  }
+  else if(CornerFlag[6])
+  {
+    potarr[n - 1] += OffsetToMove;
+    potarr[n + 1] -= OffsetToMove;
+    potarr[n - nx] -= OffsetToMove;
+    potarr[n + nx] += OffsetToMove;
+  }
+  else if(CornerFlag[7])
+  {
+    potarr[n - 1] += OffsetToMove;
+    potarr[n + 1] -= OffsetToMove;
+    potarr[n - nx] -= OffsetToMove;
+    potarr[n + nx] += OffsetToMove;
+  }
+  else if(CornerFlag[8])
+  {
+    CornerFlag[8] = false;
+    potarr[n - 1] += OffsetToMove;
+    potarr[n + 1] += OffsetToMove;
+    potarr[n - nx] -= OffsetToMove;
+  }
+  else if(CornerFlag[9])
+  {
+    CornerFlag[9] = false;
+    potarr[n - 1] += OffsetToMove;
+    potarr[n + 1] += OffsetToMove;
+    potarr[n + nx] -= OffsetToMove;
+  }
+  else if(CornerFlag[10])
+  {
+    CornerFlag[10] = false;
+    potarr[n - 1] -= OffsetToMove;
+    potarr[n - nx] += OffsetToMove;
+    potarr[n + nx] += OffsetToMove;
+  }
+  else if(CornerFlag[11])
+  {
+    CornerFlag[11] = false;
+    potarr[n + 1] -= OffsetToMove;
+    potarr[n - nx] += OffsetToMove;
+    potarr[n + nx] += OffsetToMove;
+  }
+  
+
+  // potarr[n - 1] += OffsetToMove;          //+
+  // potarr[n + 1] -= OffsetToMove;          //-
+  // potarr[n - nx] += OffsetToMove;
+  // potarr[n + nx] -= OffsetToMove;
+
   float u, d, l, r;
   l = potarr[n - 1];
   r = potarr[n + 1];
@@ -519,18 +730,21 @@ NavFn::updateCellAstar(int n)
       ta = tc;
     }
 
+    //pot = ta + hf;
     // calculate new potential
     float pot;
     if (dc >= hf) {  // if too large, use ta-only update
       pot = ta + hf;
-    } else {  // two-neighbor interpolation update
+    } 
+    else {  // two-neighbor interpolation update
       // use quadratic approximation
       // might speed this up through table lookup, but still have to
       //   do the divide
       float d = dc / hf;
-      float v = -0.2301 * d * d + 0.5307 * d + 0.7040;
+      float v = -0.2301 * d * d + 0.5307 * d + 0.7040;    //-0.2301, 0.5307, 0.7040
       pot = ta + hf * v;
     }
+    
 
     // ROS_INFO("[Update] new pot: %d\n", costarr[n]);
 
@@ -561,6 +775,11 @@ NavFn::updateCellAstar(int n)
       }
     }
   }
+  // reupdate to past cell
+  potarr[n - 1] = templ;
+  potarr[n + 1] = tempr;
+  potarr[n - nx] = tempu;
+  potarr[n + nx] = tempd;
 }
 
 
@@ -577,7 +796,7 @@ NavFn::propNavFnDijkstra(int cycles, bool atStart)
 {
   int nwv = 0;  // max priority block size
   int nc = 0;  // number of cells put into priority blocks
-  int cycle = 0;  // which cycle we're on
+  cycle = 0;  // which cycle we're on
 
   // set up start cell
   int startCell = start[1] * nx + start[0];
@@ -658,7 +877,7 @@ NavFn::propNavFnAstar(int cycles)
 {
   int nwv = 0;  // max priority block size
   int nc = 0;  // number of cells put into priority blocks
-  int cycle = 0;  // which cycle we're on
+  cycle = 0;  // which cycle we're on
 
   // set initial threshold, based on distance
   float dist = hypot(goal[0] - start[0], goal[1] - start[1]) * static_cast<float>(COST_NEUTRAL);

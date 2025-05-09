@@ -39,8 +39,8 @@ void PoseProgressChecker::initialize(
   auto node = parent.lock();
 
   nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name + ".required_movement_angle", rclcpp::ParameterValue(0.5));
-  node->get_parameter_or(plugin_name + ".required_movement_angle", required_movement_angle_, 0.5);
+    node, plugin_name + ".required_movement_angle", rclcpp::ParameterValue(0.2));    // 0.5
+  node->get_parameter_or(plugin_name + ".required_movement_angle", required_movement_angle_, 0.2);    // 0.5
 
   // Add callback for dynamic parameters
   dyn_params_handler_ = node->add_on_set_parameters_callback(

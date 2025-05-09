@@ -34,7 +34,7 @@ log
 install
 
 # Visual Studio Code files
-.vscode
+#.vscode
 
 # Eclipse project files
 .cproject
@@ -42,11 +42,11 @@ install
 .pydevproject
 
 # Python artifacts
-__pycache__/
-*.py[cod]
-.ipynb_checkpoints
+#__pycache__/
+#*.py[cod]
+# .ipynb_checkpoints
 
-sphinx_doc/_build
+# sphinx_doc/_build
 
 # CLion artifacts
 .idea
